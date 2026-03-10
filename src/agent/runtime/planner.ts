@@ -1,98 +1,96 @@
 import { contextManager } from './context';
-import { fileCapability } from '../../core/capabilities/file';
-import { shellCapability } from '../../core/capabilities/shell';
-
-export interface PlanResult {
-  action: 'chat' | 'tool_call';
-  content: string;
-  toolCall?: {
-    name: string;
-    args: any;
-  };
-}
+import { llmService } from '../../core/llm';
+import { skillRegistry } from '../skills/registry';
+import { PlanResult } from '../types';
 
 export class Planner {
+  private systemPrompt = `
+You are WorkClaw, an intelligent desktop agent.
+Your goal is to help the user by using the available tools.
+
+You have access to the following tools (skills):
+${JSON.stringify(skillRegistry.getToolDefinitions(), null, 2)}
+
+When a user asks a question:
+1. Analyze if you can answer directly.
+2. If you need to perform an action (read file, write file, search, etc.), call the appropriate tool.
+3. If the user's request is complex, break it down (though for now, just pick the best single tool).
+
+Always prefer using tools over guessing.
+  `;
+
   /**
-   * Analyzes the user's message and decides on the next action.
-   * In a real implementation, this would call an LLM.
-   * For now, we implement a simple rule-based planner for demonstration.
+   * Analyzes the user's message and decides on the next action using LLM.
    */
   async plan(sessionId: string, userMessage: string): Promise<PlanResult> {
     // Save user message to history
     contextManager.addMessage(sessionId, 'user', userMessage);
 
-    const lowerMsg = userMessage.toLowerCase();
+    // Get context history (simplified: last 10 messages)
+    const history = contextManager.getHistory(sessionId).slice(-10).map(msg => ({
+      role: msg.role === 'tool' ? 'function' : msg.role as any, // Map 'tool' to 'function' for some older OpenAI libs if needed, but 'tool' is standard now
+      content: msg.content,
+      // If it was a tool call, we might need more fields, but for simple chat completion history this is often enough
+      // For proper tool use history, we need to reconstruct the conversation including tool_calls
+    }));
 
-    // Simple rule-based intent detection
-    if (lowerMsg.startsWith('/ls') || lowerMsg.includes('list files')) {
-      const dir = lowerMsg.replace('/ls', '').replace('list files', '').trim() || '.';
-      return {
-        action: 'tool_call',
-        content: `I will list files in ${dir}`,
-        toolCall: {
-          name: 'file:list',
-          args: { path: dir }
-        }
-      };
-    }
+    try {
+      const response = await llmService.chat(
+        [
+          { role: 'system', content: this.systemPrompt },
+          ...history,
+          { role: 'user', content: userMessage }
+        ],
+        skillRegistry.getToolDefinitions()
+      );
 
-    if (lowerMsg.startsWith('/read') || lowerMsg.includes('read file')) {
-      const file = lowerMsg.replace('/read', '').replace('read file', '').trim();
-      if (!file) {
-        return { action: 'chat', content: 'Please specify a file to read.' };
-      }
-      return {
-        action: 'tool_call',
-        content: `I will read file ${file}`,
-        toolCall: {
-          name: 'file:read',
-          args: { path: file }
-        }
-      };
-    }
+      const message = response.choices[0].message;
 
-    if (lowerMsg.startsWith('/exec') || lowerMsg.includes('run command')) {
-        const cmd = lowerMsg.replace('/exec', '').replace('run command', '').trim();
-        if (!cmd) {
-            return { action: 'chat', content: 'Please specify a command to run.' };
-        }
+      if (message.tool_calls && message.tool_calls.length > 0) {
+        const toolCall = message.tool_calls[0];
         return {
-            action: 'tool_call',
-            content: `I will run command ${cmd}`,
-            toolCall: {
-                name: 'shell:exec',
-                args: { command: cmd }
-            }
+          action: 'tool_call',
+          content: 'I will execute a tool.',
+          toolCall: {
+            name: toolCall.function.name,
+            args: JSON.parse(toolCall.function.arguments)
+          }
         };
-    }
+      }
 
-    // Default to chat
-    return {
-      action: 'chat',
-      content: `I received your message: "${userMessage}". I am a simple planner for now.`
-    };
+      return {
+        action: 'chat',
+        content: message.content || "I'm not sure how to respond."
+      };
+
+    } catch (error: any) {
+      console.error('Planner Error:', error);
+      return {
+        action: 'chat',
+        content: `I encountered an error while planning: ${error.message}`
+      };
+    }
   }
 
   /**
    * Executes the tool call and returns the result.
    */
   async executeTool(toolName: string, args: any): Promise<string> {
+    const skill = skillRegistry.get(toolName);
+    if (!skill) {
+      return `Error: Skill "${toolName}" not found.`;
+    }
+
     try {
-      switch (toolName) {
-        case 'file:list':
-          const files = await fileCapability.list(args.path);
-          return `Files in ${args.path}:\n${files.join('\n')}`;
-        case 'file:read':
-          const content = await fileCapability.read(args.path);
-          return `Content of ${args.path}:\n${content}`;
-        case 'shell:exec':
-            const { stdout, stderr } = await shellCapability.exec(args.command);
-            return `Command output:\n${stdout}\n${stderr ? `Errors:\n${stderr}` : ''}`;
-        default:
-          throw new Error(`Unknown tool: ${toolName}`);
-      }
+      // Execute the skill
+      // We can pass a context object here if skills need access to session info
+      const result = await skill.execute(args, {});
+      
+      // Convert result to string if it isn't
+      if (typeof result === 'string') return result;
+      return JSON.stringify(result, null, 2);
     } catch (error: any) {
-      return `Error executing ${toolName}: ${error.message}`;
+      return `Error executing skill "${toolName}": ${error.message}`;
     }
   }
 }

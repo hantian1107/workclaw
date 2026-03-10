@@ -19,9 +19,6 @@ export class AgentRuntime {
     const session = sessionManager.getSession(channelId, userId);
     
     // 2. Set active workspace for this request
-    // In a real async environment, we might need AsyncLocalStorage to handle concurrency properly.
-    // For this simple implementation, we assume single-threaded event loop handles it sequentially enough
-    // or we pass the workspace context explicitly.
     try {
         workspaceManager.setActiveWorkspace(session.workspaceId);
     } catch (e) {
@@ -30,7 +27,7 @@ export class AgentRuntime {
         workspaceManager.setActiveWorkspace('default');
     }
 
-    // 3. Plan action
+    // 3. Plan action (using new LLM-based planner)
     const plan = await planner.plan(session.id, content);
 
     let responseContent = plan.content;
@@ -40,10 +37,13 @@ export class AgentRuntime {
     if (plan.action === 'tool_call' && plan.toolCall) {
       try {
         toolResult = await planner.executeTool(plan.toolCall.name, plan.toolCall.args);
-        responseContent += `\n\nResult:\n${toolResult}`;
+        
+        // Optionally, we could feed the tool result back to the LLM for a final response
+        // For now, we just append the result
+        responseContent = `Tool executed: ${plan.toolCall.name}\n\nResult:\n${toolResult}`;
       } catch (error: any) {
         toolResult = `Error: ${error.message}`;
-        responseContent += `\n\nFailed to execute tool: ${error.message}`;
+        responseContent = `Failed to execute tool: ${error.message}`;
       }
     }
 

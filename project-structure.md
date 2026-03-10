@@ -2,130 +2,96 @@
 
 ## 项目结构总览
 
-Workclaw 是一个基于 Electron 和 React 的桌面应用程序，主要用于工作区管理和 AI 辅助功能。项目采用典型的 Electron 项目结构，分为主进程（main）和渲染进程（renderer）两部分，同时包含 AI 代理相关的核心功能。
+Workclaw 是一个基于 Electron 和 React 的桌面应用程序，采用**六边形架构 (Hexagonal Architecture)** 的变体，强调**核心逻辑 (Agent Core)** 与**外部接口 (Channels)** 的分离，以及**能力 (Capabilities)** 与**业务技能 (Skills)** 的分层。
 
-## 项目结构图
+## 项目结构树
 
+```text
+workclaw/
+├── .trae/                 # Trae IDE 配置文件
+├── build/                 # 构建输出目录
+├── dist/                  # Electron 主进程构建输出
+├── dist-electron/         # Electron 预加载脚本构建输出
+├── public/                # 静态资源 (图标, HTML 模板)
+├── src/
+│   ├── agent/             # [核心] 智能体业务逻辑 (The Brain)
+│   │   ├── runtime/       # 运行时环境
+│   │   │   ├── session.ts      # 会话管理 (Channel -> Workspace 映射)
+│   │   │   ├── planner.ts      # 规划器 (Intent Analysis)
+│   │   │   └── context.ts      # 上下文记忆 (Memory)
+│   │   ├── skills/        # [技能层] 高级业务逻辑 (Orchestration)
+│   │   │   ├── coding/         # 代码助手技能
+│   │   │   ├── writer/         # 写作技能
+│   │   │   └── search/         # 搜索技能
+│   │   └── types.ts       # Agent 相关类型定义
+│   │
+│   ├── core/              # [内核] 系统核心与安全 (The Kernel)
+│   │   ├── sandbox.ts          # [关键] 逻辑沙箱与权限校验
+│   │   ├── workspace.ts        # 工作空间管理 (资源白名单)
+│   │   ├── capabilities/       # [能力层] 原子操作 (Atomic Capabilities)
+│   │   │   ├── file.ts         # 文件读写 (受限)
+│   │   │   ├── shell.ts        # 系统命令 (受限)
+│   │   │   └── browser.ts      # 浏览器控制
+│   │   └── config.ts           # 全局配置管理
+│   │
+│   ├── channels/          # [接入层] 通信适配器 (Adapters)
+│   │   ├── base.ts             # IChannel 接口定义
+│   │   ├── ipc/                # Electron IPC 通道 (UI 通信)
+│   │   └── feishu/             # 飞书 Webhook 通道 (远程通信)
+│   │
+│   ├── main/              # [主进程] Electron 入口 (Infrastructure)
+│   │   ├── index.ts            # 应用初始化, 模块组装
+│   │   ├── preload.ts          # 预加载脚本 (安全桥接)
+│   │   └── window.ts           # 窗口管理
+│   │
+│   └── renderer/          # [渲染进程] React UI (Presentation)
+│       ├── components/         # UI 组件 (shadcn/ui)
+│       ├── hooks/              # React Hooks
+│       ├── stores/             # 状态管理 (Zustand)
+│       ├── views/              # 页面视图
+│       ├── App.tsx             # 应用入口
+│       └── main.tsx            # 渲染入口
+│
+├── tests/                 # 测试目录
+├── electron-builder.json  # 打包配置
+├── package.json           # 依赖管理
+├── tsconfig.json          # TypeScript 配置
+├── vite.config.ts         # Vite 构建配置
+└── workflow.md            # 项目需求文档
 ```
-src/
-├── agent/             # AI 代理相关功能
-│   ├── components/    # AI 相关组件
-│   │   └── Chat/      # 聊天界面组件
-│   └── core/          # AI 核心功能
-│       ├── context.ts  # 上下文管理
-│       ├── executor.ts # 命令执行器
-│       └── llm.ts      # 语言模型服务
-├── assets/            # 静态资源
-├── main/             # Electron 主进程
-│   ├── fileSystem.ts  # 文件系统服务
-│   ├── index.ts       # 主进程入口
-│   ├── preload.js     # 预加载脚本
-│   └── workspace.ts   # 工作区服务
-├── renderer/          # Electron 渲染进程
-│   ├── components/    # UI 组件
-│   │   ├── WorkspaceDetails.tsx  # 工作区详情组件
-│   │   └── WorkspaceList.tsx     # 工作区列表组件
-│   ├── stores/        # 状态管理
-│   │   └── workspaceStore.ts  # 工作区状态管理
-│   ├── App.tsx        # 渲染进程应用入口
-│   └── index.tsx      # 渲染进程入口
-├── App.tsx            # 主应用组件（Web 版本）
-└── main.tsx           # 主应用入口（Web 版本）
-```
 
-## 模块功能说明
+## 核心模块职责说明
 
-### 1. agent/ 目录
+### 1. `src/agent/` (智能体层)
+负责处理用户的意图，编排技能，维护对话状态。它**不直接操作底层资源**，而是通过 `capabilities` 进行操作。
+- **runtime/**: 包含智能体的核心循环：接收消息 -> 规划 -> 执行技能 -> 返回结果。
+- **skills/**: 定义了智能体“会做什么”。例如 `CodeReviewSkill` 可能会调用文件读取能力和 LLM 服务。
 
-**功能**：包含 AI 代理相关的所有功能，是应用的智能核心。
+### 2. `src/core/` (系统内核层)
+负责系统的安全性、资源管理和原子能力的实现。这是**安全沙箱**的所在地。
+- **sandbox.ts**: 拦截所有对 `capabilities` 的调用，检查操作的目标路径是否在当前激活的 `workspace` 白名单内。
+- **capabilities/**: 提供最底层的操作，如 `fs.readFile`, `exec`。这些函数在执行前必须通过 `sandbox` 的检查。
+- **workspace.ts**: 管理工作空间的配置（ID, 名称, 包含的文件夹路径）。
 
-#### agent/components/ 目录
-- **Chat/**：聊天界面组件，提供与 AI 助手的交互界面，支持发送消息、显示历史消息和执行命令。
+### 3. `src/channels/` (接入层)
+负责将外部世界的异构消息转换为内部统一的 `UserMessage` 格式。
+- **ipc/**: 处理来自 Electron 渲染进程的消息。
+- **feishu/**: 启动一个轻量级 HTTP Server，处理飞书的回调事件。
 
-#### agent/core/ 目录
-- **context.ts**：上下文管理，负责管理聊天历史和对话上下文。
-- **executor.ts**：命令执行器，负责解析和执行 AI 生成的命令，如文件操作等。
-- **llm.ts**：语言模型服务，负责与 MiniMax API 交互，生成 AI 响应。
+### 4. `src/main/` (主进程)
+Electron 的入口点。它负责：
+1.  初始化 `Config`, `WorkspaceManager`, `AgentRuntime`。
+2.  加载并启动所有 `Channels` (IPC, Feishu)。
+3.  管理应用生命周期和窗口。
 
-### 2. assets/ 目录
+### 5. `src/renderer/` (UI 层)
+纯粹的展示层。它不包含任何 Agent 逻辑或文件操作逻辑，所有操作都通过 `window.electron.ipcRenderer` 发送给主进程。
 
-**功能**：存放静态资源文件，如图片、图标等。
+## 关键设计决策
 
-### 3. main/ 目录
-
-**功能**：Electron 主进程代码，负责应用的启动、窗口管理和系统级操作。
-
-- **fileSystem.ts**：文件系统服务，提供文件读写、目录操作等功能。
-- **index.ts**：主进程入口，负责应用初始化、窗口创建和 IPC 通信处理。
-- **preload.js**：预加载脚本，用于在渲染进程中安全地暴露 Electron API。
-- **workspace.ts**：工作区服务，负责工作区的创建、管理和持久化存储。
-
-### 4. renderer/ 目录
-
-**功能**：Electron 渲染进程代码，负责应用的 UI 渲染和用户交互。
-
-#### renderer/components/ 目录
-- **WorkspaceDetails.tsx**：工作区详情组件，显示当前工作区的详细信息，包括文件夹列表和操作按钮。
-- **WorkspaceList.tsx**：工作区列表组件，显示所有工作区，支持创建、选择和删除工作区。
-
-#### renderer/stores/ 目录
-- **workspaceStore.ts**：工作区状态管理，使用 Zustand 管理工作区相关的状态和操作。
-
-- **App.tsx**：渲染进程应用入口，组织 UI 布局和组件。
-- **index.tsx**：渲染进程入口，负责挂载 React 应用。
-
-### 5. 根目录文件
-
-- **App.tsx**：主应用组件（Web 版本），用于在浏览器中运行的版本。
-- **main.tsx**：主应用入口（Web 版本），用于在浏览器中挂载 React 应用。
-
-## 核心模块关系
-
-1. **工作区管理流程**：
-   - 用户通过 WorkspaceList 组件选择或创建工作区
-   - WorkspaceDetails 组件显示工作区详情和文件夹列表
-   - workspaceStore 管理工作区状态，与主进程的 workspaceService 通信
-   - workspaceService 负责工作区的持久化存储
-
-2. **AI 代理流程**：
-   - 用户通过 Chat 组件发送消息
-   - Chat 组件调用 llmService 生成 AI 响应
-   - llmService 与 MiniMax API 交互获取响应
-   - 如果响应包含命令，commandExecutor 会执行相应的命令
-   - 执行结果会返回给用户
-
-3. **文件操作流程**：
-   - 用户通过界面或 AI 命令发起文件操作
-   - 渲染进程通过 IPC 调用主进程的 fileSystemService
-   - fileSystemService 执行实际的文件系统操作
-   - 操作结果返回给渲染进程并显示给用户
-
-## 技术栈
-
-- **前端框架**：React
-- **状态管理**：Zustand
-- **桌面应用**：Electron
-- **AI 服务**：MiniMax API
-- **构建工具**：Vite
-- **语言**：TypeScript
-
-## 项目特点
-
-1. **模块化设计**：清晰的模块划分，便于维护和扩展
-2. **双环境支持**：同时支持 Electron 桌面应用和 Web 浏览器环境
-3. **AI 集成**：集成 MiniMax API 提供智能助手功能
-4. **工作区管理**：提供直观的工作区和文件夹管理功能
-5. **文件系统操作**：支持文件的打开、保存和目录浏览
-
-## 开发说明
-
-- 开发模式：`npm run dev` 启动开发服务器
-- Electron 开发模式：`npm run electron:dev` 启动 Electron 应用
-- 构建：`npm run build` 构建生产版本
-
-## 注意事项
-
-- 项目使用 TypeScript，确保类型定义正确
-- 主进程和渲染进程之间通过 IPC 通信
-- AI 功能需要有效的 MiniMax API 密钥
-- 工作区数据存储在用户的 AppData 目录中
+1.  **去网关化 (No Gateway)**: 直接使用 `Channels` 适配器在主进程内处理消息，避免了本地 HTTP 网关的开销和复杂性。
+2.  **Skill vs Capability**:
+    - **Skill**: 业务逻辑 (如 "重构代码")，由 Prompt 和逻辑流组成。
+    - **Capability**: 原子能力 (如 "写文件")，由代码实现，受沙箱控制。
+3.  **逻辑沙箱 (Logical Sandbox)**: 通过 `Workspace` 定义的资源白名单，在 `Capability` 执行前进行路径校验，确保 Agent 只能操作授权的文件/目录。
+4.  **动态会话 (Dynamic Session)**: Agent 实例与 Workspace 是解耦的。通过 `SessionManager`，飞书用户和 UI 用户可以分别绑定到不同的 Workspace，互不干扰。

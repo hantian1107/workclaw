@@ -1,4 +1,3 @@
-
 /**
  * Electron 主进程入口文件
  * 负责应用初始化、窗口创建和 IPC 通信处理
@@ -10,10 +9,37 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { fileSystemService } from './fileSystem';
 import { workspaceService } from './workspace';
+import { IpcChannel } from '../channels/ipc';
+import { FeishuChannel } from '../channels/feishu';
+import { agentRuntime } from '../agent/runtime/agent';
 
 // 获取当前文件路径和目录路径
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// 初始化通道
+const ipcChannel = new IpcChannel();
+const feishuChannel = new FeishuChannel();
+
+// 绑定消息处理逻辑
+const handleMessage = async (channel: IpcChannel | FeishuChannel) => {
+  channel.onMessage(async (userId, message) => {
+    try {
+      // 1. 调用 Agent Runtime 处理消息
+      const response = await agentRuntime.processMessage(channel.name, userId, message);
+      
+      // 2. 将响应发回给用户
+      await channel.send(userId, response.content);
+    } catch (error: any) {
+      console.error(`Error processing message from ${channel.name}:`, error);
+      await channel.send(userId, `Error: ${error.message}`);
+    }
+  });
+};
+
+// 绑定所有通道
+handleMessage(ipcChannel);
+handleMessage(feishuChannel);
 
 /**
  * 创建应用窗口
@@ -51,6 +77,10 @@ function createWindow() {
 app.whenReady().then(() => {
   createWindow();
 
+  // 启动通道
+  ipcChannel.start();
+  feishuChannel.start();
+
   // 当应用被激活时（如点击 dock 图标），如果没有窗口则创建一个
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -59,6 +89,10 @@ app.whenReady().then(() => {
 
 // 当所有窗口关闭时退出应用（除了 macOS）
 app.on('window-all-closed', function () {
+  // 停止通道
+  ipcChannel.stop();
+  feishuChannel.stop();
+
   if (process.platform !== 'darwin') app.quit();
 });
 

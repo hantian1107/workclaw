@@ -1,4 +1,4 @@
-import { ISkill } from '../../types';
+import type { ISkill } from '../../types';
 import { browserCapability } from '../../../core/capabilities/browser';
 import { llmService } from '../../core/llm';
 

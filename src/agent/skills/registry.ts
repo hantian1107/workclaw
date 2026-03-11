@@ -1,4 +1,4 @@
-import { ISkill } from '../types';
+import type { ISkill } from '../types';
 import { codingSkill } from './coding';
 import { writerSkill } from './writer';
 import { searchSkill } from './search';

@@ -1,5 +1,5 @@
 import path from 'path';
-import { workspaceManager, WorkspaceConfig } from './workspace';
+import { workspaceManager, type WorkspaceConfig } from './workspace';
 
 export class SecurityError extends Error {
   constructor(message: string) {

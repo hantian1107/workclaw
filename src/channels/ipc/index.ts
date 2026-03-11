@@ -1,4 +1,4 @@
-import { ipcMain, IpcMainInvokeEvent, WebContents } from 'electron';
+import { ipcMain, type IpcMainInvokeEvent, type WebContents } from 'electron';
 import { BaseChannel } from '../base';
 
 export class IpcChannel extends BaseChannel {

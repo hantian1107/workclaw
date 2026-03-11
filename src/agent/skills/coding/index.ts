@@ -1,4 +1,4 @@
-import { ISkill } from '../../types';
+import type { ISkill } from '../../types';
 import { fileCapability } from '../../../core/capabilities/file';
 import { llmService } from '../../core/llm';
 
@@ -6,7 +6,7 @@ export class CodingSkill implements ISkill {
   name = 'coding';
   description = 'Read, write, list files and analyze code';
 
-  async execute(args: any, context: any): Promise<any> {
+  async execute(args: any): Promise<any> {
     const { action, path, content, query } = args;
 
     switch (action) {

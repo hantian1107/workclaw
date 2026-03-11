@@ -1,7 +1,7 @@
 import { contextManager } from './context';
-import { llmService } from '../../core/llm';
+import { llmService } from '../core/llm';
 import { skillRegistry } from '../skills/registry';
-import { PlanResult } from '../types';
+import type { PlanResult } from '../types';
 
 export class Planner {
   private systemPrompt = `

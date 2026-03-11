@@ -1,4 +1,4 @@
-import { ISkill } from '../../types';
+import type { ISkill } from '../../types';
 import { llmService } from '../../core/llm';
 
 export class WriterSkill implements ISkill {

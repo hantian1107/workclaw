@@ -133,7 +133,7 @@ const WorkspaceDetails: React.FC = () => {
             <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-blue-500"></div>
           </div>
         ) : currentWorkspace.folders.length === 0 ? (
-          {/* 无文件夹状态 */}
+          /* 无文件夹状态 */
           <div className="flex flex-col items-center justify-center h-40 bg-white rounded-lg border border-dashed border-gray-300">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 mb-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
@@ -142,7 +142,7 @@ const WorkspaceDetails: React.FC = () => {
             <p className="text-sm text-gray-400 mt-2">Click "Add Folder" to add local folders</p>
           </div>
         ) : (
-          {/* 文件夹列表 */}
+          /* 文件夹列表 */
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
             {currentWorkspace.folders.map((folder) => (
               <div
@@ -197,7 +197,7 @@ const WorkspaceDetails: React.FC = () => {
                   {/* 操作按钮 */}
                   <div className="flex items-center gap-2">
                     {editingFolder === folder.id ? (
-                      {/* 保存按钮 */}
+                      /* 保存按钮 */
                       <button
                         onClick={() => handleSaveFolder(folder.id)}
                         className="p-2 text-green-600 hover:bg-green-50 rounded-full transition-colors"
@@ -208,7 +208,7 @@ const WorkspaceDetails: React.FC = () => {
                         </svg>
                       </button>
                     ) : (
-                      {/* 编辑按钮 */}
+                      /* 编辑按钮 */
                       <button
                         onClick={() => handleEditFolder(folder)}
                         className="p-2 text-blue-500 hover:bg-blue-50 rounded-full transition-colors"

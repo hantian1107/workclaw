@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import { configManager } from '../../core/config';
-import { ChatCompletionMessageParam, ChatCompletionTool } from 'openai/resources/chat/completions';
+import type { ChatCompletionMessageParam, ChatCompletionTool } from 'openai/resources/chat/completions';
 
 export class LLMService {
   private client: OpenAI;

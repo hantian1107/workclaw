@@ -2,7 +2,7 @@
  * Electron 主进程入口文件
  * 负责应用初始化、窗口创建和 IPC 通信处理
  */
-// @ts-ignore - Electron types will be available after installation
+
 import { app, BrowserWindow, ipcMain, dialog } from 'electron';
 import type { IpcMainEvent } from 'electron';
 import path from 'path';

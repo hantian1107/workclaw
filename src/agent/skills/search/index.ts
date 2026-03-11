@@ -1,12 +1,11 @@
 import type { ISkill } from '../../types';
 import { browserCapability } from '../../../core/capabilities/browser';
-import { llmService } from '../../core/llm';
 
 export class SearchSkill implements ISkill {
   name = 'search';
   description = 'Search the web and retrieve information';
 
-  async execute(args: any, context: any): Promise<any> {
+  async execute(args: any): Promise<any> {
     const { action, query, url } = args;
 
     switch (action) {

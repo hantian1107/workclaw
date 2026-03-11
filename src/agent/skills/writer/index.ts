@@ -5,7 +5,7 @@ export class WriterSkill implements ISkill {
   name = 'writer';
   description = 'Generate content, summaries, and documentation';
 
-  async execute(args: any, context: any): Promise<any> {
+  async execute(args: any): Promise<any> {
     const { action, content, topic, format } = args;
 
     switch (action) {

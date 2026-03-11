@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { useWorkspaceStore } from '../stores/workspaceStore';
 
 const WorkspaceList = () => {
-  const { workspaces, currentWorkspace, isLoading, error, actions } = useWorkspaceStore();
+  const { workspaces, isLoading, error, actions } = useWorkspaceStore();
 
   useEffect(() => {
     actions.getWorkspaces();

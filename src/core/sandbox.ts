@@ -1,5 +1,5 @@
 import path from 'path';
-import { workspaceManager, type WorkspaceConfig } from './workspace';
+import { workspaceManager } from './workspace';
 
 export class SecurityError extends Error {
   constructor(message: string) {
@@ -19,7 +19,7 @@ export class Sandbox {
    * Validates if a file path is allowed within the current active workspace.
    * Throws SecurityError if access is denied.
    */
-  public validatePath(targetPath: string, mode: 'read' | 'write' = 'read'): string {
+  public validatePath(targetPath: string): string {
     const activeWorkspace = this.workspaceManager.getActiveWorkspace();
     
     if (!activeWorkspace) {

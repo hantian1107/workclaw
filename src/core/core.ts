@@ -18,7 +18,7 @@ class Core {
       return 'Error: Invalid tool call format';
     }
 
-    const { name, params, context } = toolCall.tool_call;
+    const { name, params } = toolCall.tool_call;
     
     // 解析工具名称和操作
     const [capability, operation] = name.split('.');
@@ -26,11 +26,11 @@ class Core {
     try {
       switch (capability) {
         case 'file':
-          return await this.executeFileOperation(operation, params, context);
+          return await this.executeFileOperation(operation, params);
         case 'shell':
-          return await this.executeShellOperation(operation, params, context);
+          return await this.executeShellOperation(operation, params);
         case 'browser':
-          return await this.executeBrowserOperation(operation, params, context);
+          return await this.executeBrowserOperation(operation, params);
         default:
           return `Error: Unknown capability: ${capability}`;
       }
@@ -40,7 +40,7 @@ class Core {
     }
   }
 
-  private async executeFileOperation(operation: string, params: any, context: any): Promise<string> {
+  private async executeFileOperation(operation: string, params: any): Promise<string> {
     const { path, content, options } = params;
     
     // 检查权限
@@ -68,11 +68,11 @@ class Core {
     }
   }
 
-  private async executeShellOperation(operation: string, params: any, context: any): Promise<string> {
+  private async executeShellOperation(operation: string, params: any): Promise<string> {
     const { command, options } = params;
     
     // 检查权限
-    if (!this.sandbox.checkShellAccess(command)) {
+    if (operation !== 'kill' && !this.sandbox.checkShellAccess(command)) {
       return 'Error: Access denied to execute command';
     }
 
@@ -81,13 +81,13 @@ class Core {
         return await this.sandbox.execute(() => shellCapability.exec(command, options));
       case 'kill':
         const { pid } = params;
-        return await this.sandbox.execute(() => shellCapability.kill(pid));
+        return await this.sandbox.execute(async () => shellCapability.kill(pid));
       default:
         return `Error: Unknown shell operation: ${operation}`;
     }
   }
 
-  private async executeBrowserOperation(operation: string, params: any, context: any): Promise<string> {
+  private async executeBrowserOperation(operation: string, params: any): Promise<string> {
     const { url, options } = params;
 
     switch (operation) {

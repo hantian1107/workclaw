@@ -1,17 +1,18 @@
 import { exec, execSync, spawn } from 'child_process';
+import type { SpawnOptions as NodeSpawnOptions } from 'child_process';
 
 interface SpawnOptions {
   cwd?: string;
-  env?: Record<string, string>;
+  env?: NodeJS.ProcessEnv;
   stdio?: any;
   detached?: boolean;
-  killSignal?: string;
+  killSignal?: NodeJS.Signals | number;
   timeout?: number;
 }
 
 interface ExecOptions {
   cwd?: string;
-  env?: Record<string, string>;
+  env?: NodeJS.ProcessEnv;
   timeout?: number;
   maxBuffer?: number;
 }
@@ -47,19 +48,35 @@ function killProcess(pid: number): string {
 
 async function spawnCommand(command: string, args: string[], options?: SpawnOptions): Promise<string> {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, options || {});
+    const spawnOpts: NodeSpawnOptions = {
+      cwd: options?.cwd,
+      env: options?.env,
+      detached: options?.detached,
+      timeout: options?.timeout,
+      killSignal: options?.killSignal
+    };
+
+    if (options?.stdio) {
+      spawnOpts.stdio = options.stdio;
+    }
+
+    const child = spawn(command, args, spawnOpts);
     let stdout = '';
     let stderr = '';
 
-    child.stdout.on('data', (data) => {
-      stdout += data.toString();
-    });
+    if (child.stdout) {
+      child.stdout.on('data', (data: Buffer) => {
+        stdout += data.toString();
+      });
+    }
 
-    child.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
+    if (child.stderr) {
+      child.stderr.on('data', (data: Buffer) => {
+        stderr += data.toString();
+      });
+    }
 
-    child.on('close', (code) => {
+    child.on('close', (code: number) => {
       if (code === 0) {
         resolve(stdout);
       } else {
@@ -67,7 +84,7 @@ async function spawnCommand(command: string, args: string[], options?: SpawnOpti
       }
     });
 
-    child.on('error', (error) => {
+    child.on('error', (error: Error) => {
       reject(new Error(`Spawn failed: ${error.message}`));
     });
   });

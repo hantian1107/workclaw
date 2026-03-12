@@ -61,29 +61,57 @@ class RendererAPI {
 
   workspace = {
     create: async (name: string, description: string): Promise<Workspace> => {
-      if (window.electron) {
+      if (window.electron && window.electron.workspace) {
         return await window.electron.workspace.create(name, description);
       }
       throw new Error('Electron API not available');
     },
 
     list: async (): Promise<Workspace[]> => {
-      if (window.electron) {
+      if (window.electron && window.electron.workspace) {
         return await window.electron.workspace.list();
       }
       throw new Error('Electron API not available');
     },
 
+    get: async (id: string): Promise<Workspace | null> => {
+      if (window.electron && window.electron.workspace) {
+        return await window.electron.workspace.get(id);
+      }
+      throw new Error('Electron API not available');
+    },
+
+    update: async (id: string, updates: any): Promise<Workspace | null> => {
+      if (window.electron && window.electron.workspace) {
+        return await window.electron.workspace.update(id, updates);
+      }
+      throw new Error('Electron API not available');
+    },
+
+    delete: async (id: string): Promise<boolean> => {
+      if (window.electron && window.electron.workspace) {
+        return await window.electron.workspace.delete(id);
+      }
+      throw new Error('Electron API not available');
+    },
+
     switch: async (id: string): Promise<boolean> => {
-      if (window.electron) {
+      if (window.electron && window.electron.workspace) {
         return await window.electron.workspace.switch(id);
       }
       throw new Error('Electron API not available');
     },
 
     addResource: async (workspaceId: string, resource: Resource): Promise<boolean> => {
-      if (window.electron) {
+      if (window.electron && window.electron.workspace) {
         return await window.electron.workspace.addResource(workspaceId, resource);
+      }
+      throw new Error('Electron API not available');
+    },
+
+    removeResource: async (workspaceId: string, resourcePath: string): Promise<boolean> => {
+      if (window.electron && window.electron.workspace) {
+        return await window.electron.workspace.removeResource(workspaceId, resourcePath);
       }
       throw new Error('Electron API not available');
     }
@@ -136,4 +164,3 @@ class RendererAPI {
 
 export const api = new RendererAPI();
 export type { Message, Conversation, ConversationInfo, Workspace, Resource, AgentMessage };
-

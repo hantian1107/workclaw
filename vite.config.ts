@@ -10,7 +10,26 @@ export default defineConfig({
     electron([
       {
         entry: 'src/main/index.ts',
+        vite: {
+          build: {
+            outDir: 'dist-electron',
+            rollupOptions: {
+              external: ['better-sqlite3']
+            }
+          }
+        }
       },
+      {
+        entry: 'src/main/preload.ts',
+        onstart(options) {
+          options.reload()
+        },
+        vite: {
+          build: {
+            outDir: 'dist-electron'
+          }
+        }
+      }
     ]),
     tailwindcss()
 

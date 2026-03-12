@@ -24,3 +24,5 @@ dist-ssr
 *.sw?
 openclaw/
 .trae/
+dist-electron/
+.config/

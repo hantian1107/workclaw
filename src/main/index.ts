@@ -6,6 +6,26 @@ import { Agent } from '../agent/agent';
 import { Core } from '../core/core';
 import { WorkspaceManager } from '../workspace/workspace';
 import { MainAPI } from './service/api';
+import { initDatabase } from './db';
+import { registerWorkspaceHandlers } from './ipc/workspace';
+import path from 'path';
+
+// 在应用启动的最开始阶段（任何 app 事件之前）
+// 检查是否为开发环境
+const isDevelopment = !app.isPackaged;
+
+// 在 macOS 上，Electron 的沙箱可能会阻止访问未签名的路径
+// 如果需要访问非标准路径，可能需要禁用沙箱
+if (isDevelopment && process.platform === 'darwin') {
+  app.commandLine.appendSwitch('no-sandbox');
+}
+
+if (isDevelopment) {
+  const projectRoot = process.cwd();
+  const devUserDataPath = path.join(projectRoot, '.config', 'workclaw-dev');
+  app.setPath('userData', devUserDataPath);
+  console.log('Running in development mode. UserData path set to:', devUserDataPath);
+}
 
 class Application {
   private mainWindow: BrowserWindow | null = null;
@@ -14,15 +34,22 @@ class Application {
   private agent: Agent;
   private core: Core;
   private workspaceManager: WorkspaceManager;
+  // @ts-ignore
   private mainAPI: MainAPI;
 
   constructor() {
+    // 1. 初始化数据库
+    initDatabase();
+    
     this.ipcChannel = new IPCChannel();
     this.feishuChannel = new FeishuChannel();
     this.workspaceManager = new WorkspaceManager();
     this.core = new Core(this.workspaceManager);
-    this.agent = new Agent();
+    this.agent = new Agent(this.core);
     this.mainAPI = new MainAPI();
+
+    // 2. 注册 IPC 处理程序
+    registerWorkspaceHandlers(this.workspaceManager);
 
     this.setupEventListeners();
     this.setupChannels();

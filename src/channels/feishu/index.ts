@@ -4,6 +4,12 @@ class FeishuChannel implements IChannel {
   private channelId: string = 'feishu-channel';
   private messageCallback: ((message: UserMessage) => void) | null = null;
 
+  public simulateIncomingMessage(message: UserMessage) {
+    if (this.messageCallback) {
+      this.messageCallback(message);
+    }
+  }
+
   start(): Promise<void> {
     // 启动HTTP服务器，监听飞书Webhook请求
     // 注意：这是预留功能，实际实现需要启动一个HTTP服务器

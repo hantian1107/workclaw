@@ -5,22 +5,34 @@ const electronAPI = {
     ipcRenderer.send('message', message);
   },
   onMessage: (callback: (message: any) => void) => {
-    ipcRenderer.on('message', (event, message) => {
+    ipcRenderer.on('message', (_event, message) => {
       callback(message);
     });
   },
   workspace: {
     create: (name: string, description: string) => {
-      return ipcRenderer.invoke('workspace:create', { name, description });
+      return ipcRenderer.invoke('workspace:create', name, description);
     },
     list: () => {
       return ipcRenderer.invoke('workspace:list');
+    },
+    get: (id: string) => {
+      return ipcRenderer.invoke('workspace:get', id);
+    },
+    update: (id: string, updates: any) => {
+      return ipcRenderer.invoke('workspace:update', id, updates);
+    },
+    delete: (id: string) => {
+      return ipcRenderer.invoke('workspace:delete', id);
     },
     switch: (id: string) => {
       return ipcRenderer.invoke('workspace:switch', id);
     },
     addResource: (workspaceId: string, resource: any) => {
-      return ipcRenderer.invoke('workspace:addResource', { workspaceId, resource });
+      return ipcRenderer.invoke('workspace:resource:add', workspaceId, resource);
+    },
+    removeResource: (workspaceId: string, resourcePath: string) => {
+      return ipcRenderer.invoke('workspace:resource:remove', workspaceId, resourcePath);
     }
   },
   conversation: {

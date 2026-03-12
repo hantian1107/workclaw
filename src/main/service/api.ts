@@ -27,6 +27,7 @@ interface ConversationInfo {
   createdAt: string;
 }
 
+/*
 interface Workspace {
   id: string;
   name: string;
@@ -35,8 +36,10 @@ interface Workspace {
   createdAt: string;
   updatedAt: string;
 }
+*/
 
 class MainAPI {
+  /*
   private mockWorkspaces: Workspace[] = [
     {
       id: 'workspace-1',
@@ -55,6 +58,7 @@ class MainAPI {
       updatedAt: '2026-03-12T10:00:00.000Z'
     }
   ];
+  */
 
   private mockConversations: Conversation[] = [
     {
@@ -114,36 +118,14 @@ class MainAPI {
   }
 
   private registerHandlers(): void {
-    this.registerWorkspaceHandlers();
     this.registerConversationHandlers();
   }
 
+  /*
   private registerWorkspaceHandlers(): void {
-    ipcMain.handle('workspace:create', async (_event: IpcMainInvokeEvent, { name, description }: { name: string; description: string }) => {
-      const newWorkspace: Workspace = {
-        id: `workspace-${Date.now()}`,
-        name,
-        description,
-        resources: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      this.mockWorkspaces.push(newWorkspace);
-      return newWorkspace;
-    });
-
-    ipcMain.handle('workspace:list', async () => {
-      return [...this.mockWorkspaces];
-    });
-
-    ipcMain.handle('workspace:switch', async (_event: IpcMainInvokeEvent, id: string) => {
-      return true;
-    });
-
-    ipcMain.handle('workspace:addResource', async (_event: IpcMainInvokeEvent, { workspaceId, resource }: { workspaceId: string; resource: any }) => {
-      return true;
-    });
+    // ... removed to avoid conflict with real workspace handlers
   }
+  */
 
   private registerConversationHandlers(): void {
     ipcMain.handle('conversation:create', async (_event: IpcMainInvokeEvent, title: string, workspaceId?: string) => {

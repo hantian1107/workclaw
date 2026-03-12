@@ -2,12 +2,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 interface ReadOptions {
-  encoding?: string;
+  encoding?: BufferEncoding;
   flag?: string;
 }
 
 interface WriteOptions {
-  encoding?: string;
+  encoding?: BufferEncoding;
   flag?: string;
   mode?: number;
 }
@@ -19,11 +19,11 @@ interface ListOptions {
 
 async function read(filePath: string, options?: ReadOptions): Promise<string> {
   return new Promise((resolve, reject) => {
-    fs.readFile(filePath, options || { encoding: 'utf8' }, (err, data) => {
+    fs.readFile(filePath, options || { encoding: 'utf8' }, (err: NodeJS.ErrnoException | null, data: string | Buffer) => {
       if (err) {
         reject(new Error(`Error reading file: ${err.message}`));
       } else {
-        resolve(data as string);
+        resolve(data.toString());
       }
     });
   });
@@ -35,7 +35,13 @@ async function write(filePath: string, content: string, options?: WriteOptions):
     const dir = path.dirname(filePath);
     fs.mkdirSync(dir, { recursive: true });
 
-    fs.writeFile(filePath, content, options || { encoding: 'utf8' }, (err) => {
+    const writeOptions: fs.WriteFileOptions = {
+      encoding: options?.encoding || 'utf8',
+      flag: options?.flag,
+      mode: options?.mode
+    };
+
+    fs.writeFile(filePath, content, writeOptions, (err: NodeJS.ErrnoException | null) => {
       if (err) {
         reject(new Error(`Error writing file: ${err.message}`));
       } else {

@@ -1,31 +1,47 @@
 import { screen, BrowserWindow, ipcMain, app } from "electron";
 import * as path$1 from "path";
 import path__default from "path";
-import { fileURLToPath } from "url";
+import Database from "better-sqlite3";
 import * as fs from "fs";
+import fs__default from "fs";
 import { exec } from "child_process";
-const __filename$1 = fileURLToPath(import.meta.url);
-const __dirname$1 = path__default.dirname(__filename$1);
+import { randomFillSync, randomUUID } from "node:crypto";
+let __dirname$1;
+try {
+  const { fileURLToPath } = await import("url");
+  const __filename = fileURLToPath(import.meta.url);
+  __dirname$1 = path__default.dirname(__filename);
+} catch (e) {
+  __dirname$1 = global.__dirname || "";
+}
 function createWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
   const mainWindow = new BrowserWindow({
     width: Math.floor(width * 0.8),
     height: Math.floor(height * 0.8),
+    backgroundColor: "#2d3748",
+    // 设置背景色以避免白色闪烁
+    show: false,
+    // 初始隐藏，等待 ready-to-show
     webPreferences: {
       preload: path__default.join(__dirname$1, "preload.js"),
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: true
+      sandbox: false
+      // 禁用沙箱以支持 Node.js 模块
     },
     title: "Workclaw",
     icon: path__default.join(__dirname$1, "../../public/icon.png")
   });
-  if (process.env.NODE_ENV === "development") {
-    mainWindow.loadURL("http://localhost:5173");
+  if (process.env.VITE_DEV_SERVER_URL) {
+    mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
     mainWindow.webContents.openDevTools();
   } else {
     mainWindow.loadFile(path__default.join(__dirname$1, "../../dist/index.html"));
   }
+  mainWindow.once("ready-to-show", () => {
+    mainWindow.show();
+  });
   mainWindow.on("closed", () => {
   });
   return mainWindow;
@@ -72,6 +88,11 @@ class IPCChannel {
 class FeishuChannel {
   channelId = "feishu-channel";
   messageCallback = null;
+  simulateIncomingMessage(message) {
+    if (this.messageCallback) {
+      this.messageCallback(message);
+    }
+  }
   start() {
     console.log("Feishu channel started (reserved for future implementation)");
     return Promise.resolve();
@@ -7045,143 +7066,242 @@ Assistant:`;
     return rolePrompts[role] || this.systemPrompt;
   }
 }
-class Agent {
-  llmService;
-  sessionManager;
-  contextManager;
-  conversationManager;
-  promptManager;
-  constructor() {
-    this.llmService = new LLMService();
-    this.sessionManager = new SessionManager();
-    this.contextManager = new ContextManager();
-    this.conversationManager = new ConversationManager();
-    this.promptManager = new PromptManager();
+const byteToHex = [];
+for (let i = 0; i < 256; ++i) {
+  byteToHex.push((i + 256).toString(16).slice(1));
+}
+function unsafeStringify(arr, offset = 0) {
+  return (byteToHex[arr[offset + 0]] + byteToHex[arr[offset + 1]] + byteToHex[arr[offset + 2]] + byteToHex[arr[offset + 3]] + "-" + byteToHex[arr[offset + 4]] + byteToHex[arr[offset + 5]] + "-" + byteToHex[arr[offset + 6]] + byteToHex[arr[offset + 7]] + "-" + byteToHex[arr[offset + 8]] + byteToHex[arr[offset + 9]] + "-" + byteToHex[arr[offset + 10]] + byteToHex[arr[offset + 11]] + byteToHex[arr[offset + 12]] + byteToHex[arr[offset + 13]] + byteToHex[arr[offset + 14]] + byteToHex[arr[offset + 15]]).toLowerCase();
+}
+const rnds8Pool = new Uint8Array(256);
+let poolPtr = rnds8Pool.length;
+function rng() {
+  if (poolPtr > rnds8Pool.length - 16) {
+    randomFillSync(rnds8Pool);
+    poolPtr = 0;
   }
-  async processMessage(message, sessionId) {
-    this.sessionManager.getOrCreateSession(sessionId);
-    this.conversationManager.addMessage(sessionId, "user", message);
-    const context = this.contextManager.getContext(sessionId);
-    const prompt = this.promptManager.buildPrompt(message, context);
-    const response = await this.llmService.generate(prompt);
-    let result = response;
-    if (this.needsToolCall(response)) {
-      const toolCall = this.parseToolCall(response);
-      const toolResult = await this.executeToolCall(toolCall);
-      const toolPrompt = this.promptManager.buildToolPrompt(toolResult);
-      const finalResponse = await this.llmService.generate(toolPrompt);
-      result = finalResponse;
-    }
-    this.conversationManager.addMessage(sessionId, "assistant", result);
-    return result;
+  return rnds8Pool.slice(poolPtr, poolPtr += 16);
+}
+const native = { randomUUID };
+function _v4(options, buf, offset) {
+  options = options || {};
+  const rnds = options.random ?? options.rng?.() ?? rng();
+  if (rnds.length < 16) {
+    throw new Error("Random bytes length must be >= 16");
   }
-  needsToolCall(response) {
-    return response.includes("tool_call");
+  rnds[6] = rnds[6] & 15 | 64;
+  rnds[8] = rnds[8] & 63 | 128;
+  return unsafeStringify(rnds);
+}
+function v4(options, buf, offset) {
+  if (native.randomUUID && true && !options) {
+    return native.randomUUID();
   }
-  parseToolCall(response) {
-    try {
-      const toolCallMatch = response.match(/\{"tool_call":\{[^}]+\}\}/);
-      if (toolCallMatch) {
-        return JSON.parse(toolCallMatch[0]);
-      }
-      return null;
-    } catch (error) {
-      console.error("Error parsing tool call:", error);
-      return null;
-    }
+  return _v4(options);
+}
+function initWorkspaceDatabase(db2) {
+  db2.exec(`
+    CREATE TABLE IF NOT EXISTS workspaces (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      is_active INTEGER DEFAULT 0
+    )
+  `);
+  db2.exec(`
+    CREATE TABLE IF NOT EXISTS resources (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      path TEXT NOT NULL,
+      type TEXT NOT NULL,
+      permissions TEXT NOT NULL,
+      FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+    )
+  `);
+}
+let db;
+function initDatabase() {
+  const userDataPath = app.getPath("userData");
+  if (!fs__default.existsSync(userDataPath)) {
+    fs__default.mkdirSync(userDataPath, { recursive: true });
   }
-  async executeToolCall(toolCall) {
-    if (!toolCall || !toolCall.tool_call) {
-      return "Error: Invalid tool call format";
-    }
-    const { name } = toolCall.tool_call;
-    switch (name) {
-      case "file.read":
-        return "File read operation result";
-      case "file.write":
-        return "File write operation result";
-      case "shell.exec":
-        return "Shell exec operation result";
-      case "browser.open":
-        return "Browser open operation result";
-      default:
-        return `Error: Unknown tool: ${name}`;
-    }
+  const dbPath = path__default.join(userDataPath, "workclaw.db");
+  db = new Database(dbPath);
+  db.pragma("foreign_keys = ON");
+  initWorkspaceDatabase(db);
+  return db;
+}
+function getDatabase() {
+  if (!db) {
+    throw new Error("Database not initialized");
   }
+  return db;
 }
 class WorkspaceManager {
-  workspaces = /* @__PURE__ */ new Map();
   currentWorkspaceId = null;
+  constructor() {
+    this.loadCurrentWorkspaceId();
+  }
+  loadCurrentWorkspaceId() {
+    const db2 = getDatabase();
+    try {
+      const stmt = db2.prepare("SELECT id FROM workspaces WHERE is_active = 1 LIMIT 1");
+      const row = stmt.get();
+      if (row) {
+        this.currentWorkspaceId = row.id;
+      }
+    } catch (error) {
+      console.error("Failed to load current workspace id:", error);
+    }
+  }
   createWorkspace(name, description) {
-    const id = `workspace-${Date.now()}`;
+    const id = v4();
+    const now = (/* @__PURE__ */ new Date()).toISOString();
     const workspace = {
       id,
       name,
       description,
       resources: [],
-      createdAt: (/* @__PURE__ */ new Date()).toISOString(),
-      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+      createdAt: now,
+      updatedAt: now
     };
-    this.workspaces.set(id, workspace);
+    const db2 = getDatabase();
+    const stmt = db2.prepare(`
+      INSERT INTO workspaces (id, name, description, created_at, updated_at)
+      VALUES (@id, @name, @description, @createdAt, @updatedAt)
+    `);
+    stmt.run(workspace);
     return workspace;
   }
   getWorkspace(id) {
-    return this.workspaces.get(id) || null;
+    const db2 = getDatabase();
+    const workspaceStmt = db2.prepare("SELECT * FROM workspaces WHERE id = ?");
+    const resourceStmt = db2.prepare("SELECT * FROM resources WHERE workspace_id = ?");
+    const row = workspaceStmt.get(id);
+    if (!row) return null;
+    const resources = resourceStmt.all(id);
+    return {
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      resources: resources.map((r) => ({
+        path: r.path,
+        type: r.type,
+        permissions: r.permissions
+      }))
+    };
   }
   getAllWorkspaces() {
-    return Array.from(this.workspaces.values());
+    const db2 = getDatabase();
+    const workspaceStmt = db2.prepare("SELECT * FROM workspaces");
+    const rows = workspaceStmt.all();
+    const resourceStmt = db2.prepare("SELECT * FROM resources");
+    const allResources = resourceStmt.all();
+    const resourcesByWorkspace = /* @__PURE__ */ new Map();
+    for (const r of allResources) {
+      if (!resourcesByWorkspace.has(r.workspace_id)) {
+        resourcesByWorkspace.set(r.workspace_id, []);
+      }
+      resourcesByWorkspace.get(r.workspace_id)?.push({
+        path: r.path,
+        type: r.type,
+        permissions: r.permissions
+      });
+    }
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      resources: resourcesByWorkspace.get(row.id) || []
+    }));
   }
   updateWorkspace(id, updates) {
-    const workspace = this.getWorkspace(id);
-    if (!workspace) {
-      return null;
-    }
-    const updatedWorkspace = {
-      ...workspace,
+    const db2 = getDatabase();
+    const current = this.getWorkspace(id);
+    if (!current) return null;
+    const updated = {
+      ...current,
       ...updates,
       updatedAt: (/* @__PURE__ */ new Date()).toISOString()
     };
-    this.workspaces.set(id, updatedWorkspace);
-    return updatedWorkspace;
+    const fields = [];
+    const params = { id };
+    if (updates.name !== void 0) {
+      fields.push("name = @name");
+      params.name = updates.name;
+    }
+    if (updates.description !== void 0) {
+      fields.push("description = @description");
+      params.description = updates.description;
+    }
+    fields.push("updated_at = @updatedAt");
+    params.updatedAt = updated.updatedAt;
+    if (fields.length > 1) {
+      const stmt = db2.prepare(`UPDATE workspaces SET ${fields.join(", ")} WHERE id = @id`);
+      stmt.run(params);
+    }
+    return this.getWorkspace(id);
   }
   deleteWorkspace(id) {
+    const db2 = getDatabase();
     if (this.currentWorkspaceId === id) {
       this.currentWorkspaceId = null;
+      db2.prepare("UPDATE workspaces SET is_active = 0 WHERE id = ?").run(id);
     }
-    return this.workspaces.delete(id);
+    const info = db2.prepare("DELETE FROM workspaces WHERE id = ?").run(id);
+    return info.changes > 0;
   }
   addResource(workspaceId, resource) {
-    const workspace = this.getWorkspace(workspaceId);
-    if (!workspace) {
+    const db2 = getDatabase();
+    const workspace = db2.prepare("SELECT id FROM workspaces WHERE id = ?").get(workspaceId);
+    if (!workspace) return false;
+    const resourceId = v4();
+    try {
+      const stmt = db2.prepare(`
+            INSERT INTO resources (id, workspace_id, path, type, permissions)
+            VALUES (?, ?, ?, ?, ?)
+        `);
+      stmt.run(resourceId, workspaceId, resource.path, resource.type, resource.permissions);
+      db2.prepare("UPDATE workspaces SET updated_at = ? WHERE id = ?").run((/* @__PURE__ */ new Date()).toISOString(), workspaceId);
+      return true;
+    } catch (error) {
+      console.error("Failed to add resource:", error);
       return false;
     }
-    workspace.resources.push(resource);
-    workspace.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
-    this.workspaces.set(workspaceId, workspace);
-    return true;
   }
   removeResource(workspaceId, resourcePath) {
-    const workspace = this.getWorkspace(workspaceId);
-    if (!workspace) {
-      return false;
-    }
-    const initialLength = workspace.resources.length;
-    workspace.resources = workspace.resources.filter(
-      (resource) => resource.path !== resourcePath
-    );
-    if (workspace.resources.length !== initialLength) {
-      workspace.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
-      this.workspaces.set(workspaceId, workspace);
+    const db2 = getDatabase();
+    const workspace = db2.prepare("SELECT id FROM workspaces WHERE id = ?").get(workspaceId);
+    if (!workspace) return false;
+    const info = db2.prepare("DELETE FROM resources WHERE workspace_id = ? AND path = ?").run(workspaceId, resourcePath);
+    if (info.changes > 0) {
+      db2.prepare("UPDATE workspaces SET updated_at = ? WHERE id = ?").run((/* @__PURE__ */ new Date()).toISOString(), workspaceId);
       return true;
     }
     return false;
   }
   setCurrentWorkspace(id) {
-    if (!this.workspaces.has(id)) {
+    const db2 = getDatabase();
+    const workspace = db2.prepare("SELECT id FROM workspaces WHERE id = ?").get(id);
+    if (!workspace) return false;
+    const updateActive = db2.transaction(() => {
+      db2.prepare("UPDATE workspaces SET is_active = 0").run();
+      db2.prepare("UPDATE workspaces SET is_active = 1 WHERE id = ?").run(id);
+    });
+    try {
+      updateActive();
+      this.currentWorkspaceId = id;
+      return true;
+    } catch (error) {
+      console.error("Failed to set current workspace:", error);
       return false;
     }
-    this.currentWorkspaceId = id;
-    return true;
   }
   getCurrentWorkspace() {
     if (!this.currentWorkspaceId) {
@@ -7210,11 +7330,14 @@ class WorkspaceManager {
     return false;
   }
   exportWorkspaces() {
-    return JSON.stringify(Array.from(this.workspaces.values()), null, 2);
+    return JSON.stringify(this.getAllWorkspaces(), null, 2);
   }
   importWorkspaces(workspaces) {
-    for (const workspace of workspaces) {
-      this.workspaces.set(workspace.id, workspace);
+    for (const ws of workspaces) {
+      const newWs = this.createWorkspace(ws.name, ws.description);
+      for (const res of ws.resources) {
+        this.addResource(newWs.id, res);
+      }
     }
   }
 }
@@ -7229,7 +7352,7 @@ class Sandbox {
    * @param operation 操作类型（read, write）
    * @returns 是否允许访问
    */
-  checkAccess(path2, operation) {
+  checkAccess(_path, _operation) {
     const currentWorkspace = this.workspaceManager.getCurrentWorkspace();
     if (!currentWorkspace) {
       return false;
@@ -7241,7 +7364,7 @@ class Sandbox {
    * @param command 命令
    * @returns 是否允许执行
    */
-  checkShellAccess(command) {
+  checkShellAccess(_command) {
     return true;
   }
   /**
@@ -7259,7 +7382,7 @@ async function read(filePath, options) {
       if (err) {
         reject(new Error(`Error reading file: ${err.message}`));
       } else {
-        resolve(data);
+        resolve(data.toString());
       }
     });
   });
@@ -7268,7 +7391,12 @@ async function write(filePath, content, options) {
   return new Promise((resolve, reject) => {
     const dir = path$1.dirname(filePath);
     fs.mkdirSync(dir, { recursive: true });
-    fs.writeFile(filePath, content, options || { encoding: "utf8" }, (err) => {
+    const writeOptions = {
+      encoding: options?.encoding || "utf8",
+      flag: options?.flag,
+      mode: options?.mode
+    };
+    fs.writeFile(filePath, content, writeOptions, (err) => {
       if (err) {
         reject(new Error(`Error writing file: ${err.message}`));
       } else {
@@ -7323,7 +7451,7 @@ function killProcess(pid) {
     throw new Error(`Failed to kill process: ${error.message}`);
   }
 }
-async function open(url, options) {
+async function open(url, _options) {
   return new Promise((resolve, reject) => {
     let command;
     if (process.platform === "win32") {
@@ -7333,7 +7461,7 @@ async function open(url, options) {
     } else {
       command = `xdg-open "${url}"`;
     }
-    exec(command, (error, stdout, stderr) => {
+    exec(command, (error, _stdout, _stderr) => {
       if (error) {
         reject(new Error(`Failed to open browser: ${error.message}`));
       } else {
@@ -7342,7 +7470,7 @@ async function open(url, options) {
     });
   });
 }
-async function getContent(url, options) {
+async function getContent(url, _options) {
   return `Content retrieval not implemented for URL: ${url}`;
 }
 class Core {
@@ -7356,16 +7484,16 @@ class Core {
     if (!toolCall || !toolCall.tool_call) {
       return "Error: Invalid tool call format";
     }
-    const { name, params, context } = toolCall.tool_call;
+    const { name, params } = toolCall.tool_call;
     const [capability, operation] = name.split(".");
     try {
       switch (capability) {
         case "file":
-          return await this.executeFileOperation(operation, params, context);
+          return await this.executeFileOperation(operation, params);
         case "shell":
-          return await this.executeShellOperation(operation, params, context);
+          return await this.executeShellOperation(operation, params);
         case "browser":
-          return await this.executeBrowserOperation(operation, params, context);
+          return await this.executeBrowserOperation(operation, params);
         default:
           return `Error: Unknown capability: ${capability}`;
       }
@@ -7374,7 +7502,7 @@ class Core {
       return `Error: ${error.message}`;
     }
   }
-  async executeFileOperation(operation, params, context) {
+  async executeFileOperation(operation, params) {
     const { path: path2, content, options } = params;
     if (!this.sandbox.checkAccess(path2, "read")) {
       return "Error: Access denied to file";
@@ -7398,9 +7526,9 @@ class Core {
         return `Error: Unknown file operation: ${operation}`;
     }
   }
-  async executeShellOperation(operation, params, context) {
+  async executeShellOperation(operation, params) {
     const { command, options } = params;
-    if (!this.sandbox.checkShellAccess(command)) {
+    if (operation !== "kill" && !this.sandbox.checkShellAccess(command)) {
       return "Error: Access denied to execute command";
     }
     switch (operation) {
@@ -7408,12 +7536,12 @@ class Core {
         return await this.sandbox.execute(() => execCommand(command, options));
       case "kill":
         const { pid } = params;
-        return await this.sandbox.execute(() => killProcess(pid));
+        return await this.sandbox.execute(async () => killProcess(pid));
       default:
         return `Error: Unknown shell operation: ${operation}`;
     }
   }
-  async executeBrowserOperation(operation, params, context) {
+  async executeBrowserOperation(operation, params) {
     const { url, options } = params;
     switch (operation) {
       case "open":
@@ -7431,25 +7559,78 @@ class Core {
     return this.workspaceManager;
   }
 }
+class Agent {
+  llmService;
+  sessionManager;
+  contextManager;
+  conversationManager;
+  promptManager;
+  core;
+  constructor(core) {
+    this.llmService = new LLMService();
+    this.sessionManager = new SessionManager();
+    this.contextManager = new ContextManager();
+    this.conversationManager = new ConversationManager();
+    this.promptManager = new PromptManager();
+    this.core = core;
+  }
+  async processMessage(message, sessionId) {
+    this.sessionManager.getOrCreateSession(sessionId);
+    this.conversationManager.addMessage(sessionId, "user", message);
+    const context = this.contextManager.getContext(sessionId);
+    const prompt = this.promptManager.buildPrompt(message, context);
+    const response = await this.llmService.generate(prompt);
+    let result = response;
+    if (this.needsToolCall(response)) {
+      const toolCall = this.parseToolCall(response);
+      const toolResult = await this.executeToolCall(toolCall);
+      const toolPrompt = this.promptManager.buildToolPrompt(toolResult);
+      const finalResponse = await this.llmService.generate(toolPrompt);
+      result = finalResponse;
+    }
+    this.conversationManager.addMessage(sessionId, "assistant", result);
+    return result;
+  }
+  needsToolCall(response) {
+    return response.includes("tool_call");
+  }
+  parseToolCall(response) {
+    try {
+      const toolCallMatch = response.match(/\{"tool_call":\{[^}]+\}\}/);
+      if (toolCallMatch) {
+        return JSON.parse(toolCallMatch[0]);
+      }
+      return null;
+    } catch (error) {
+      console.error("Error parsing tool call:", error);
+      return null;
+    }
+  }
+  async executeToolCall(toolCall) {
+    return this.core.executeTool(toolCall);
+  }
+}
 class MainAPI {
-  mockWorkspaces = [
+  /*
+  private mockWorkspaces: Workspace[] = [
     {
-      id: "workspace-1",
-      name: "默认工作空间",
-      description: "这是默认的工作空间",
+      id: 'workspace-1',
+      name: '默认工作空间',
+      description: '这是默认的工作空间',
       resources: [],
-      createdAt: "2026-03-01T10:00:00.000Z",
-      updatedAt: "2026-03-12T10:00:00.000Z"
+      createdAt: '2026-03-01T10:00:00.000Z',
+      updatedAt: '2026-03-12T10:00:00.000Z'
     },
     {
-      id: "workspace-2",
-      name: "项目 A",
-      description: "项目 A 的开发工作空间",
+      id: 'workspace-2',
+      name: '项目 A',
+      description: '项目 A 的开发工作空间',
       resources: [],
-      createdAt: "2026-03-05T14:30:00.000Z",
-      updatedAt: "2026-03-12T10:00:00.000Z"
+      createdAt: '2026-03-05T14:30:00.000Z',
+      updatedAt: '2026-03-12T10:00:00.000Z'
     }
   ];
+  */
   mockConversations = [
     {
       id: "conv-1",
@@ -7506,32 +7687,13 @@ class MainAPI {
     this.registerHandlers();
   }
   registerHandlers() {
-    this.registerWorkspaceHandlers();
     this.registerConversationHandlers();
   }
-  registerWorkspaceHandlers() {
-    ipcMain.handle("workspace:create", async (_event, { name, description }) => {
-      const newWorkspace = {
-        id: `workspace-${Date.now()}`,
-        name,
-        description,
-        resources: [],
-        createdAt: (/* @__PURE__ */ new Date()).toISOString(),
-        updatedAt: (/* @__PURE__ */ new Date()).toISOString()
-      };
-      this.mockWorkspaces.push(newWorkspace);
-      return newWorkspace;
-    });
-    ipcMain.handle("workspace:list", async () => {
-      return [...this.mockWorkspaces];
-    });
-    ipcMain.handle("workspace:switch", async (_event, id) => {
-      return true;
-    });
-    ipcMain.handle("workspace:addResource", async (_event, { workspaceId, resource }) => {
-      return true;
-    });
+  /*
+  private registerWorkspaceHandlers(): void {
+    // ... removed to avoid conflict with real workspace handlers
   }
+  */
   registerConversationHandlers() {
     ipcMain.handle("conversation:create", async (_event, title, workspaceId) => {
       const newConversation = {
@@ -7592,6 +7754,82 @@ class MainAPI {
     });
   }
 }
+function registerWorkspaceHandlers(workspaceManager) {
+  ipcMain.handle("workspace:create", async (_, name, description) => {
+    try {
+      return workspaceManager.createWorkspace(name, description);
+    } catch (error) {
+      console.error("IPC workspace:create error:", error);
+      throw error;
+    }
+  });
+  ipcMain.handle("workspace:list", async () => {
+    try {
+      return workspaceManager.getAllWorkspaces();
+    } catch (error) {
+      console.error("IPC workspace:list error:", error);
+      throw error;
+    }
+  });
+  ipcMain.handle("workspace:get", async (_, id) => {
+    try {
+      return workspaceManager.getWorkspace(id);
+    } catch (error) {
+      console.error("IPC workspace:get error:", error);
+      throw error;
+    }
+  });
+  ipcMain.handle("workspace:update", async (_, id, updates) => {
+    try {
+      return workspaceManager.updateWorkspace(id, updates);
+    } catch (error) {
+      console.error("IPC workspace:update error:", error);
+      throw error;
+    }
+  });
+  ipcMain.handle("workspace:delete", async (_, id) => {
+    try {
+      return workspaceManager.deleteWorkspace(id);
+    } catch (error) {
+      console.error("IPC workspace:delete error:", error);
+      throw error;
+    }
+  });
+  ipcMain.handle("workspace:switch", async (_, id) => {
+    try {
+      return workspaceManager.setCurrentWorkspace(id);
+    } catch (error) {
+      console.error("IPC workspace:switch error:", error);
+      throw error;
+    }
+  });
+  ipcMain.handle("workspace:resource:add", async (_, workspaceId, resource) => {
+    try {
+      return workspaceManager.addResource(workspaceId, resource);
+    } catch (error) {
+      console.error("IPC workspace:resource:add error:", error);
+      throw error;
+    }
+  });
+  ipcMain.handle("workspace:resource:remove", async (_, workspaceId, resourcePath) => {
+    try {
+      return workspaceManager.removeResource(workspaceId, resourcePath);
+    } catch (error) {
+      console.error("IPC workspace:resource:remove error:", error);
+      throw error;
+    }
+  });
+}
+const isDevelopment = !app.isPackaged;
+if (isDevelopment && process.platform === "darwin") {
+  app.commandLine.appendSwitch("no-sandbox");
+}
+if (isDevelopment) {
+  const projectRoot = process.cwd();
+  const devUserDataPath = path__default.join(projectRoot, ".config", "workclaw-dev");
+  app.setPath("userData", devUserDataPath);
+  console.log("Running in development mode. UserData path set to:", devUserDataPath);
+}
 class Application {
   mainWindow = null;
   ipcChannel;
@@ -7599,14 +7837,17 @@ class Application {
   agent;
   core;
   workspaceManager;
+  // @ts-ignore
   mainAPI;
   constructor() {
+    initDatabase();
     this.ipcChannel = new IPCChannel();
     this.feishuChannel = new FeishuChannel();
     this.workspaceManager = new WorkspaceManager();
     this.core = new Core(this.workspaceManager);
-    this.agent = new Agent();
+    this.agent = new Agent(this.core);
     this.mainAPI = new MainAPI();
+    registerWorkspaceHandlers(this.workspaceManager);
     this.setupEventListeners();
     this.setupChannels();
   }

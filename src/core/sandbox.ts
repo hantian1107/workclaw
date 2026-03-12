@@ -13,7 +13,7 @@ class Sandbox {
    * @param operation 操作类型（read, write）
    * @returns 是否允许访问
    */
-  checkAccess(path: string, operation: string): boolean {
+  checkAccess(_path: string, _operation: string): boolean {
     // 简单实现：检查路径是否在工作空间内
     const currentWorkspace = this.workspaceManager.getCurrentWorkspace();
     if (!currentWorkspace) {
@@ -29,7 +29,7 @@ class Sandbox {
    * @param command 命令
    * @returns 是否允许执行
    */
-  checkShellAccess(command: string): boolean {
+  checkShellAccess(_command: string): boolean {
     // 简单实现：允许所有命令
     // 这里可以添加更复杂的权限检查逻辑
     return true;

@@ -5,7 +5,7 @@ interface OpenOptions {
   app?: string;
 }
 
-async function open(url: string, options?: OpenOptions): Promise<string> {
+async function open(url: string, _options?: OpenOptions): Promise<string> {
   return new Promise((resolve, reject) => {
     let command: string;
     
@@ -18,7 +18,7 @@ async function open(url: string, options?: OpenOptions): Promise<string> {
       command = `xdg-open "${url}"`;
     }
 
-    exec(command, (error, stdout, stderr) => {
+    exec(command, (error, _stdout, _stderr) => {
       if (error) {
         reject(new Error(`Failed to open browser: ${error.message}`));
       } else {
@@ -28,7 +28,7 @@ async function open(url: string, options?: OpenOptions): Promise<string> {
   });
 }
 
-async function getContent(url: string, options?: any): Promise<string> {
+async function getContent(url: string, _options?: any): Promise<string> {
   // 暂时不实现 getContent 功能
   return `Content retrieval not implemented for URL: ${url}`;
 }

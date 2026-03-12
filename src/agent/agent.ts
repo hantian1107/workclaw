@@ -3,6 +3,7 @@ import { SessionManager } from './runtime/session';
 import { ContextManager } from './utils/context';
 import { ConversationManager } from './utils/conversation';
 import { PromptManager } from './utils/prompts';
+import { Core } from '../core/core';
 
 class Agent {
   private llmService: LLMService;
@@ -10,13 +11,15 @@ class Agent {
   private contextManager: ContextManager;
   private conversationManager: ConversationManager;
   private promptManager: PromptManager;
+  private core: Core;
 
-  constructor() {
+  constructor(core: Core) {
     this.llmService = new LLMService();
     this.sessionManager = new SessionManager();
     this.contextManager = new ContextManager();
     this.conversationManager = new ConversationManager();
     this.promptManager = new PromptManager();
+    this.core = core;
   }
 
   async processMessage(message: string, sessionId: string): Promise<string> {
@@ -75,30 +78,7 @@ class Agent {
   }
 
   private async executeToolCall(toolCall: any): Promise<string> {
-    // 执行工具调用
-    if (!toolCall || !toolCall.tool_call) {
-      return 'Error: Invalid tool call format';
-    }
-
-    const { name } = toolCall.tool_call;
-    
-    // 根据工具名称执行相应的操作
-    switch (name) {
-      case 'file.read':
-        // 调用文件读取能力
-        return 'File read operation result';
-      case 'file.write':
-        // 调用文件写入能力
-        return 'File write operation result';
-      case 'shell.exec':
-        // 调用系统命令能力
-        return 'Shell exec operation result';
-      case 'browser.open':
-        // 调用浏览器控制能力
-        return 'Browser open operation result';
-      default:
-        return `Error: Unknown tool: ${name}`;
-    }
+    return this.core.executeTool(toolCall);
   }
 }
 

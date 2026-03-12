@@ -21,4 +21,4 @@ interface IChannel {
   getChannelId(): string;
 }
 
-export { IChannel, UserMessage, AgentMessage };
+export type { IChannel, UserMessage, AgentMessage };

@@ -7431,6 +7431,167 @@ class Core {
     return this.workspaceManager;
   }
 }
+class MainAPI {
+  mockWorkspaces = [
+    {
+      id: "workspace-1",
+      name: "默认工作空间",
+      description: "这是默认的工作空间",
+      resources: [],
+      createdAt: "2026-03-01T10:00:00.000Z",
+      updatedAt: "2026-03-12T10:00:00.000Z"
+    },
+    {
+      id: "workspace-2",
+      name: "项目 A",
+      description: "项目 A 的开发工作空间",
+      resources: [],
+      createdAt: "2026-03-05T14:30:00.000Z",
+      updatedAt: "2026-03-12T10:00:00.000Z"
+    }
+  ];
+  mockConversations = [
+    {
+      id: "conv-1",
+      title: "Python 编程帮助",
+      workspaceId: "workspace-1",
+      messages: [
+        {
+          id: "msg-1",
+          role: "user",
+          content: "你好，能帮我写一个 Python 脚本吗？",
+          timestamp: "2026-03-12T09:00:00.000Z"
+        },
+        {
+          id: "msg-2",
+          role: "assistant",
+          content: '好的！这是一个简单的 Python 脚本示例：\n\n```python\nprint("Hello, World!")\n```',
+          timestamp: "2026-03-12T09:00:01.000Z"
+        }
+      ],
+      createdAt: "2026-03-12T09:00:00.000Z",
+      updatedAt: "2026-03-12T09:00:01.000Z"
+    },
+    {
+      id: "conv-2",
+      title: "React 组件设计",
+      workspaceId: "workspace-2",
+      messages: [
+        {
+          id: "msg-3",
+          role: "user",
+          content: "如何设计一个可复用的按钮组件？",
+          timestamp: "2026-03-11T15:30:00.000Z"
+        },
+        {
+          id: "msg-4",
+          role: "assistant",
+          content: "可以使用 props 来配置按钮的样式、大小和功能。",
+          timestamp: "2026-03-11T15:30:02.000Z"
+        }
+      ],
+      createdAt: "2026-03-11T15:30:00.000Z",
+      updatedAt: "2026-03-11T15:30:02.000Z"
+    },
+    {
+      id: "conv-3",
+      title: "新对话",
+      workspaceId: void 0,
+      messages: [],
+      createdAt: "2026-03-12T08:00:00.000Z",
+      updatedAt: "2026-03-12T08:00:00.000Z"
+    }
+  ];
+  constructor() {
+    this.registerHandlers();
+  }
+  registerHandlers() {
+    this.registerWorkspaceHandlers();
+    this.registerConversationHandlers();
+  }
+  registerWorkspaceHandlers() {
+    ipcMain.handle("workspace:create", async (_event, { name, description }) => {
+      const newWorkspace = {
+        id: `workspace-${Date.now()}`,
+        name,
+        description,
+        resources: [],
+        createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+        updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+      };
+      this.mockWorkspaces.push(newWorkspace);
+      return newWorkspace;
+    });
+    ipcMain.handle("workspace:list", async () => {
+      return [...this.mockWorkspaces];
+    });
+    ipcMain.handle("workspace:switch", async (_event, id) => {
+      return true;
+    });
+    ipcMain.handle("workspace:addResource", async (_event, { workspaceId, resource }) => {
+      return true;
+    });
+  }
+  registerConversationHandlers() {
+    ipcMain.handle("conversation:create", async (_event, title, workspaceId) => {
+      const newConversation = {
+        id: `conv-${Date.now()}`,
+        title,
+        workspaceId,
+        messages: [],
+        createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+        updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+      };
+      this.mockConversations.push(newConversation);
+      return newConversation;
+    });
+    ipcMain.handle("conversation:list", async (_event, workspaceId) => {
+      const conversationInfos = this.mockConversations.map((conv) => {
+        const lastMessage = conv.messages.length > 0 ? conv.messages[conv.messages.length - 1] : null;
+        return {
+          id: conv.id,
+          title: conv.title,
+          lastMessage: lastMessage ? lastMessage.content.slice(0, 50) : "",
+          lastMessageTime: lastMessage ? lastMessage.timestamp : conv.updatedAt,
+          messageCount: conv.messages.length,
+          workspaceId: conv.workspaceId,
+          createdAt: conv.createdAt
+        };
+      });
+      if (workspaceId) {
+        return conversationInfos.filter((c) => c.workspaceId === workspaceId);
+      }
+      return conversationInfos;
+    });
+    ipcMain.handle("conversation:get", async (_event, conversationId) => {
+      const conversation = this.mockConversations.find((c) => c.id === conversationId);
+      return conversation || null;
+    });
+    ipcMain.handle("conversation:updateTitle", async (_event, conversationId, title) => {
+      const conversation = this.mockConversations.find((c) => c.id === conversationId);
+      if (conversation) {
+        conversation.title = title;
+        conversation.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+      }
+      return true;
+    });
+    ipcMain.handle("conversation:delete", async (_event, conversationId) => {
+      const index = this.mockConversations.findIndex((c) => c.id === conversationId);
+      if (index !== -1) {
+        this.mockConversations.splice(index, 1);
+      }
+      return true;
+    });
+    ipcMain.handle("conversation:clear", async (_event, conversationId) => {
+      const conversation = this.mockConversations.find((c) => c.id === conversationId);
+      if (conversation) {
+        conversation.messages = [];
+        conversation.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+      }
+      return true;
+    });
+  }
+}
 class Application {
   mainWindow = null;
   ipcChannel;
@@ -7438,12 +7599,14 @@ class Application {
   agent;
   core;
   workspaceManager;
+  mainAPI;
   constructor() {
     this.ipcChannel = new IPCChannel();
     this.feishuChannel = new FeishuChannel();
     this.workspaceManager = new WorkspaceManager();
     this.core = new Core(this.workspaceManager);
     this.agent = new Agent();
+    this.mainAPI = new MainAPI();
     this.setupEventListeners();
     this.setupChannels();
   }

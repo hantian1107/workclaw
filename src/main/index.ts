@@ -5,6 +5,7 @@ import { FeishuChannel } from '../channels/feishu';
 import { Agent } from '../agent/agent';
 import { Core } from '../core/core';
 import { WorkspaceManager } from '../workspace/workspace';
+import { MainAPI } from './service/api';
 
 class Application {
   private mainWindow: BrowserWindow | null = null;
@@ -13,6 +14,7 @@ class Application {
   private agent: Agent;
   private core: Core;
   private workspaceManager: WorkspaceManager;
+  private mainAPI: MainAPI;
 
   constructor() {
     this.ipcChannel = new IPCChannel();
@@ -20,6 +22,7 @@ class Application {
     this.workspaceManager = new WorkspaceManager();
     this.core = new Core(this.workspaceManager);
     this.agent = new Agent();
+    this.mainAPI = new MainAPI();
 
     this.setupEventListeners();
     this.setupChannels();

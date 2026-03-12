@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 import electron from 'vite-plugin-electron'
-
+import tailwindcss from '@tailwindcss/vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
@@ -12,6 +12,8 @@ export default defineConfig({
         entry: 'src/main/index.ts',
       },
     ]),
+    tailwindcss()
+
   ],
   resolve: {
     alias: {

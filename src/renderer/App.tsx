@@ -1,17 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { Routes, Route, useNavigate } from 'react-router-dom';
 import './App.css';
+import WorkspaceSelector from './component/WorkspaceSelector';
+import ConversationList from './component/ConversationList';
+import ChatView from './view/ChatView';
+import WorkspaceManagementView from './view/WorkspaceManagementView';
+import { api, type Workspace } from './service/api';
 
 function App() {
-  const [workspaces] = useState<any[]>([
-    { id: '1', name: '默认工作空间' },
-    { id: '2', name: '项目 A' },
-    { id: '3', name: '项目 B' }
-  ]);
+  const navigate = useNavigate();
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [conversations, setConversations] = useState<any[]>([
     { id: '1', title: '对话 1', lastMessage: 'Hello', timestamp: new Date().toISOString() },
     { id: '2', title: '对话 2', lastMessage: 'How are you?', timestamp: new Date().toISOString() }
   ]);
-  const [selectedWorkspace, setSelectedWorkspace] = useState('1');
+  const [selectedWorkspace, setSelectedWorkspace] = useState('');
   const [selectedConversation, setSelectedConversation] = useState('1');
   const [messages, setMessages] = useState<any[]>([
     { id: '1', content: 'Hello', role: 'assistant', timestamp: new Date().toISOString() },
@@ -21,6 +24,22 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
+    // 获取工作空间列表
+    const fetchWorkspaces = async () => {
+      try {
+        const list = await api.workspace.list();
+        setWorkspaces(list);
+        // 如果没有选中的工作空间且列表不为空，默认选中第一个
+        if (list.length > 0) {
+          setSelectedWorkspace(prev => prev || list[0].id);
+        }
+      } catch (error) {
+        console.error('Failed to fetch workspaces:', error);
+      }
+    };
+
+    fetchWorkspaces();
+
     // 监听来自主进程的消息
     if (window.electron) {
       window.electron.onMessage((message) => {
@@ -77,86 +96,73 @@ function App() {
     setMessages([]);
   };
 
+  const handleCreateWorkspace = async (name: string) => {
+    try {
+      const newWorkspace = await api.workspace.create(name, '');
+      setWorkspaces(prev => [...prev, newWorkspace]);
+    } catch (error) {
+      console.error('Failed to create workspace:', error);
+    }
+  };
+
+  const handleAddResource = async (workspaceId: string, resourcePath: string) => {
+    try {
+      // 默认添加为文件类型，权限为只读
+      await api.workspace.addResource(workspaceId, {
+        path: resourcePath,
+        type: 'file',
+        permissions: 'read'
+      });
+      // 重新获取列表以刷新显示
+      const list = await api.workspace.list();
+      setWorkspaces(list);
+    } catch (error) {
+      console.error('Failed to add resource:', error);
+    }
+  };
+
   return (
     <div className="app">
       <div className="app-container">
-        {/* 左侧栏 */}
-        <div className="sidebar">
-          {/* 工作空间选择 */}
-          <div className="workspace-section">
-            <h2>工作空间</h2>
-            <div className="workspace-list">
-              {workspaces.map((workspace) => (
-                <div
-                  key={workspace.id}
-                  className={`workspace-item ${selectedWorkspace === workspace.id ? 'active' : ''}`}
-                  onClick={() => setSelectedWorkspace(workspace.id)}
-                >
-                  {workspace.name}
-                </div>
-              ))}
-            </div>
-            <button className="add-button">+ 添加工作空间</button>
-          </div>
+        {/* 路由配置 */}
+        <Routes>
+          <Route path="/" element={
+            <>
+              {/* 左侧栏 */}
+              <div className="sidebar">
+                <WorkspaceSelector
+                  workspaces={workspaces}
+                  selectedWorkspace={selectedWorkspace}
+                  onSelectWorkspace={setSelectedWorkspace}
+                  onManageWorkspace={() => navigate('/workspace-management')}
+                />
+                <ConversationList
+                  conversations={conversations}
+                  selectedConversation={selectedConversation}
+                  onSelectConversation={setSelectedConversation}
+                  onCreateConversation={handleCreateConversation}
+                />
+              </div>
 
-          {/* 对话管理 */}
-          <div className="conversation-section">
-            <div className="section-header">
-              <h2>对话</h2>
-              <button className="add-button" onClick={handleCreateConversation}>+</button>
-            </div>
-            <div className="conversation-list">
-              {conversations.map((conversation) => (
-                <div
-                  key={conversation.id}
-                  className={`conversation-item ${selectedConversation === conversation.id ? 'active' : ''}`}
-                  onClick={() => setSelectedConversation(conversation.id)}
-                >
-                  <div className="conversation-title">{conversation.title}</div>
-                  <div className="conversation-preview">{conversation.lastMessage}</div>
-                  <div className="conversation-time">
-                    {new Date(conversation.timestamp).toLocaleTimeString()}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* 主内容区域 */}
-        <div className="main-content">
-          <div className="chat-container">
-            <div className="messages">
-              {messages.map((message) => (
-                <div key={message.id} className={`message ${message.role}`}>
-                  <div className="message-content">{message.content}</div>
-                  <div className="message-time">
-                    {new Date(message.timestamp).toLocaleTimeString()}
-                  </div>
-                </div>
-              ))}
-              {isLoading && (
-                <div className="message assistant loading">
-                  <div className="loading-indicator">Thinking...</div>
-                </div>
-              )}
-            </div>
-            
-            <div className="input-container">
-              <input
-                type="text"
-                value={inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                placeholder="Type your message here..."
-                className="message-input"
+              {/* 主内容区域 */}
+              <ChatView
+                messages={messages}
+                inputMessage={inputMessage}
+                isLoading={isLoading}
+                onSendMessage={handleSendMessage}
+                onInputChange={setInputMessage}
               />
-              <button onClick={handleSendMessage} className="send-button">
-                Send
-              </button>
-            </div>
-          </div>
-        </div>
+            </>
+          } />
+          
+          <Route path="/workspace-management" element={
+            <WorkspaceManagementView
+              workspaces={workspaces}
+              onCreateWorkspace={handleCreateWorkspace}
+              onAddResource={handleAddResource}
+            />
+          } />
+        </Routes>
       </div>
     </div>
   );

@@ -1,6 +1,25 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { type Workspace } from '../service/api';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { ArrowLeft, Plus, Link as LinkIcon, Briefcase } from 'lucide-react';
 
 interface WorkspaceManagementViewProps {
   workspaces: Workspace[];
@@ -33,135 +52,163 @@ const WorkspaceManagementView: React.FC<WorkspaceManagementViewProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-slate-50 p-6 md:p-10 overflow-y-auto">
-      <div className="max-w-5xl mx-auto w-full space-y-8">
+    <div className="flex-1 flex flex-col h-full bg-slate-50/50 p-6 md:p-10 overflow-hidden">
+      <div className="max-w-6xl mx-auto w-full flex flex-col h-full space-y-6">
         {/* Header */}
-        <div className="flex items-center space-x-4 mb-2">
-          <button
+        <div className="flex items-center space-x-4 flex-shrink-0">
+          <Button
+            variant="outline"
+            size="icon"
             onClick={() => navigate('/')}
-            className="group flex items-center justify-center p-2.5 rounded-full bg-white border border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300 text-slate-500 hover:text-slate-700 transition-all duration-200"
+            className="rounded-full h-10 w-10 border-slate-200 shadow-sm hover:bg-slate-100"
             title="返回首页"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 transform group-hover:-translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-          </button>
+            <ArrowLeft className="h-4 w-4 text-slate-600" />
+          </Button>
           <div>
-            <h2 className="text-3xl font-bold text-slate-800 tracking-tight">工作空间管理</h2>
-            <p className="text-slate-500 mt-1">管理您的工作区和相关资源配置</p>
+            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">工作空间管理</h2>
+            <p className="text-sm text-slate-500">管理您的工作区和相关资源配置</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column: List */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Existing Workspaces */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 overflow-hidden">
-              <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-                <h3 className="text-lg font-semibold text-slate-700">现有工作空间</h3>
-                <span className="px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">
-                  {workspaces.length} 个
-                </span>
-              </div>
-              <div className="p-6">
-                {workspaces.length > 0 ? (
-                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {workspaces.map(ws => (
-                      <li
-                        key={ws.id}
-                        className="group flex items-center justify-between px-4 py-3 bg-white border border-slate-200 rounded-xl hover:border-blue-300 hover:shadow-md hover:shadow-blue-500/5 transition-all duration-200 cursor-default"
-                      >
-                        <div className="flex items-center space-x-3">
-                          <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-                            <span className="text-sm font-bold">{ws.name.charAt(0).toUpperCase()}</span>
-                          </div>
-                          <span className="font-medium text-slate-700 group-hover:text-slate-900 truncate max-w-[120px]">{ws.name}</span>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <div className="text-center py-10 text-slate-400">
-                    <p>暂无工作空间，请在右侧创建</p>
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-0">
+          {/* Left Column: List (Takes up more space) */}
+          <div className="lg:col-span-8 flex flex-col min-h-0">
+            <Card className="flex-1 flex flex-col shadow-sm border-slate-200 overflow-hidden">
+              <CardHeader className="border-b border-slate-100 bg-slate-50/30 px-6 py-4 flex-shrink-0">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <CardTitle className="text-lg">现有工作空间</CardTitle>
+                    <CardDescription>查看和管理已创建的所有工作空间</CardDescription>
                   </div>
-                )}
-              </div>
-            </div>
+                  <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium border border-slate-200">
+                    {workspaces.length} 个
+                  </span>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0 flex-1 min-h-0">
+                <ScrollArea className="h-full">
+                  <div className="p-6">
+                    {workspaces.length > 0 ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {workspaces.map(ws => (
+                          <div
+                            key={ws.id}
+                            className="group flex items-start space-x-4 p-4 rounded-xl border border-slate-200 hover:border-primary/50 hover:bg-slate-50/50 hover:shadow-sm transition-all duration-200"
+                          >
+                            <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                              <span className="text-sm font-bold">{ws.name.charAt(0).toUpperCase()}</span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="text-sm font-semibold text-slate-900 truncate">{ws.name}</h4>
+                              <p className="text-xs text-slate-500 mt-1 line-clamp-2">
+                                {ws.description || '暂无描述'}
+                              </p>
+                              <div className="mt-3 flex items-center space-x-2">
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200">
+                                  ID: {ws.id.slice(0, 8)}...
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="h-full flex flex-col items-center justify-center text-slate-400 py-20">
+                        <Briefcase className="h-12 w-12 mb-4 opacity-20" />
+                        <p>暂无工作空间，请在右侧创建</p>
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Right Column: Actions */}
-          <div className="space-y-6">
+          <div className="lg:col-span-4 flex flex-col space-y-6 overflow-y-auto">
             {/* Create Workspace */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-6 hover:shadow-md transition-shadow duration-300">
-              <div className="flex items-center space-x-2 mb-4">
-                <div className="p-1.5 bg-green-100 text-green-600 rounded-lg">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
+            <Card className="shadow-sm border-slate-200">
+              <CardHeader className="pb-4">
+                <div className="flex items-center space-x-2">
+                  <div className="p-1.5 bg-green-100/50 text-green-600 rounded-md">
+                    <Plus className="h-4 w-4" />
+                  </div>
+                  <CardTitle className="text-base">新建工作空间</CardTitle>
                 </div>
-                <h3 className="text-lg font-semibold text-slate-700">新建工作空间</h3>
-              </div>
-              <div className="space-y-3">
-                <input
-                  type="text"
-                  value={newWorkspaceName}
-                  onChange={(e) => setNewWorkspaceName(e.target.value)}
-                  placeholder="输入名称，例如：项目 A"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400 text-slate-700"
-                />
-                <button
-                  onClick={handleCreate}
-                  disabled={!newWorkspaceName.trim()}
-                  className="w-full px-4 py-2.5 bg-slate-900 hover:bg-blue-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-medium rounded-xl transition-all duration-200 shadow-sm hover:shadow active:scale-[0.98]"
+                <CardDescription>创建一个新的项目集合以开始工作</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Input
+                    placeholder="输入名称，例如：项目 A"
+                    value={newWorkspaceName}
+                    onChange={(e) => setNewWorkspaceName(e.target.value)}
+                    className="bg-slate-50/50"
+                  />
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Button 
+                  onClick={handleCreate} 
+                  disabled={!newWorkspaceName.trim()} 
+                  className="w-full"
                 >
                   创建工作空间
-                </button>
-              </div>
-            </div>
+                </Button>
+              </CardFooter>
+            </Card>
 
             {/* Add Resource */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-6 hover:shadow-md transition-shadow duration-300">
-              <div className="flex items-center space-x-2 mb-4">
-                <div className="p-1.5 bg-purple-100 text-purple-600 rounded-lg">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                  </svg>
+            <Card className="shadow-sm border-slate-200">
+              <CardHeader className="pb-4">
+                <div className="flex items-center space-x-2">
+                  <div className="p-1.5 bg-purple-100/50 text-purple-600 rounded-md">
+                    <LinkIcon className="h-4 w-4" />
+                  </div>
+                  <CardTitle className="text-base">关联资源</CardTitle>
                 </div>
-                <h3 className="text-lg font-semibold text-slate-700">关联资源</h3>
-              </div>
-              <div className="space-y-3">
-                <div className="relative">
-                  <select
-                    value={selectedWorkspaceId}
-                    onChange={(e) => setSelectedWorkspaceId(e.target.value)}
-                    className="w-full appearance-none px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none transition-all text-slate-700"
-                  >
-                    {workspaces.map(ws => (
-                      <option key={ws.id} value={ws.id}>{ws.name}</option>
-                    ))}
-                  </select>
-                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500">
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
+                <CardDescription>将文件或链接关联到现有工作空间</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-slate-500">选择工作空间</label>
+                    <Select value={selectedWorkspaceId} onValueChange={setSelectedWorkspaceId}>
+                      <SelectTrigger className="w-full bg-slate-50/50">
+                        <SelectValue placeholder="选择工作空间" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {workspaces.map((ws) => (
+                          <SelectItem key={ws.id} value={ws.id}>
+                            {ws.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-slate-500">资源路径</label>
+                    <Input
+                      placeholder="输入路径或 URL"
+                      value={resourcePath}
+                      onChange={(e) => setResourcePath(e.target.value)}
+                      className="bg-slate-50/50"
+                    />
                   </div>
                 </div>
-                <input
-                  type="text"
-                  value={resourcePath}
-                  onChange={(e) => setResourcePath(e.target.value)}
-                  placeholder="资源路径或 URL"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none transition-all placeholder:text-slate-400 text-slate-700"
-                />
-                <button
-                  onClick={handleAddResource}
-                  disabled={!resourcePath.trim() || !selectedWorkspaceId}
-                  className="w-full px-4 py-2.5 bg-white border border-slate-200 hover:border-purple-500 hover:text-purple-600 disabled:border-slate-200 disabled:text-slate-300 disabled:cursor-not-allowed text-slate-700 font-medium rounded-xl transition-all duration-200"
+              </CardContent>
+              <CardFooter>
+                <Button 
+                  onClick={handleAddResource} 
+                  disabled={!resourcePath.trim() || !selectedWorkspaceId} 
+                  variant="outline"
+                  className="w-full hover:bg-purple-50 hover:text-purple-600 hover:border-purple-200"
                 >
                   添加资源
-                </button>
-              </div>
-            </div>
+                </Button>
+              </CardFooter>
+            </Card>
           </div>
         </div>
       </div>
